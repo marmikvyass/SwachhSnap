@@ -37,14 +37,12 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onShowRegister }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center p-4 text-black">
+    <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center p-4 text-black bgimg">
       <div className="max-w-md w-full">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-[#1A73E8] rounded-3xl mb-6 shadow-xl shadow-blue-100">
-            <span className="text-4xl text-white font-bold">S</span>
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-[#1A73E8] rounded-3xl mb-3 shadow-xl shadow-blue-100">
+            <img className='rounded-2xl' src="./assets/logo.jpeg" alt="" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">SwachhSnap</h1>
-          <p className="text-gray-500 mt-2">Civic tech for a cleaner city</p>
         </div>
 
         <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
@@ -87,46 +85,20 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onShowRegister }) => {
               {loading ? 'Processing...' : 'Sign In'}
             </button>
           </form>
-
-          <div className="mt-8 pt-8 border-t border-gray-100">
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 text-center">Quick Login (Testing Only)</p>
-            <div className="grid grid-cols-1 gap-2">
-              <button 
-                onClick={() => quickSelect('admin@city.gov')}
-                className="flex items-center justify-between px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors group"
-              >
-                <span className="text-xs font-bold text-gray-600">Admin Account</span>
-                <span className="text-[10px] text-gray-400 group-hover:text-[#1A73E8]">admin@city.gov</span>
-              </button>
-              <button 
-                onClick={() => quickSelect('rajesh@clean.com')}
-                className="flex items-center justify-between px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors group"
-              >
-                <span className="text-xs font-bold text-gray-600">Sweeper Account</span>
-                <span className="text-[10px] text-gray-400 group-hover:text-[#34A853]">rajesh@clean.com</span>
-              </button>
-              <button 
-                onClick={() => quickSelect('john@example.com')}
-                className="flex items-center justify-between px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors group"
-              >
-                <span className="text-xs font-bold text-gray-600">Citizen Account</span>
-                <span className="text-[10px] text-gray-400 group-hover:text-[#FBBC05]">john@example.com</span>
-              </button>
-            </div>
-          </div>
+            <div className="mt-8 text-center">
+                <p className="text-sm text-gray-500">
+                  Don't have an account?{' '}
+                  <button
+                    onClick={onShowRegister}
+                    className="text-[#1A73E8] font-bold hover:underline"
+                  >
+                    Sign Up
+                  </button>
+                </p>
+              </div>
         </div>
 
-        <div className="mt-8 text-center">
-          <p className="text-sm text-gray-500">
-            Don't have an account?{' '}
-            <button 
-              onClick={onShowRegister}
-              className="text-[#1A73E8] font-bold hover:underline"
-            >
-              Sign Up
-            </button>
-          </p>
-        </div>
+
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import "../project--main/index.css"
+import "./index.css"
 import React, { useState, useEffect } from 'react';
 import { auth } from './lib/firebase';
 import { onAuthStateChanged, signOut } from "firebase/auth";

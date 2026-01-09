@@ -16,7 +16,7 @@ import {
   checkPriority,
 } from "../services/locationHelper";
 
-// 🔴 Cloudinary import (ONLY CHANGE)
+// Cloudinary
 import { uploadToCloudinary } from "../services/cloudinaryUpload";
 
 export const CitizenDashboard: React.FC = () => {
@@ -27,22 +27,14 @@ export const CitizenDashboard: React.FC = () => {
   const [category, setCategory] =
     useState<ComplaintCategory>("garbage");
   const [description, setDescription] = useState("");
-  const [cachedLocation, setCachedLocation] = useState<{
-    lat: number;
-    lng: number;
-  } | null>(null);
 
   const currentUser = auth.currentUser;
 
   // ==========================
-  // AUTH ACTIONS
+  // AUTH
   // ==========================
   const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error("Sign out failed:", error);
-    }
+    await signOut(auth);
   };
 
   // ==========================
@@ -70,29 +62,27 @@ export const CitizenDashboard: React.FC = () => {
   // REPORT FLOW
   // ==========================
   const handleNewReport = async () => {
-    setLoading(true);
     try {
-      const pos = await getCurrentPosition();
-      setCachedLocation({
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude,
-      });
+      await getCurrentPosition(); // permission check
       setShowCamera(true);
-    } catch (err) {
-      alert("Location is required. Please enable GPS.");
-    } finally {
-      setLoading(false);
+    } catch {
+      alert("Location permission required");
     }
   };
 
   const submitReport = async (image: string) => {
-    if (!currentUser || !cachedLocation) return;
+    if (!currentUser) return;
 
     setLoading(true);
     try {
-      const complaintId = `CMP-${Date.now()}`;
+      // 📍 LOCATION AT SUBMIT TIME
+      const pos = await getCurrentPosition();
+      const latitude = pos.coords.latitude;
+      const longitude = pos.coords.longitude;
 
-      // ✅ Cloudinary upload (ONLY IMAGE CHANGE)
+      console.log("LAT:", latitude, "LNG:", longitude);
+
+      // ☁️ IMAGE UPLOAD
       const imageUrl = await uploadToCloudinary(image);
 
       await firebaseService.createComplaint({
@@ -102,12 +92,9 @@ export const CitizenDashboard: React.FC = () => {
         description,
         beforeImage: imageUrl,
         afterImage: null,
-        latitude: cachedLocation.lat,
-        longitude: cachedLocation.lng,
-        priority: checkPriority(
-          cachedLocation.lat,
-          cachedLocation.lng
-        )
+        latitude,
+        longitude,
+        priority: checkPriority(latitude, longitude)
           ? "high"
           : "normal",
         assignedSweeperId: null,
@@ -117,10 +104,10 @@ export const CitizenDashboard: React.FC = () => {
 
       setShowCamera(false);
       setDescription("");
-      alert("Complaint submitted successfully!");
+      alert("Complaint submitted!");
     } catch (err) {
       console.error(err);
-      alert("Failed to submit report.");
+      alert("Submission failed");
     } finally {
       setLoading(false);
     }
@@ -155,26 +142,16 @@ export const CitizenDashboard: React.FC = () => {
   // ==========================
   return (
     <div className="space-y-12 pb-20 text-black">
-      <section className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold">
-            Report an Issue
-          </h2>
-
-          <div className="flex items-center gap-3">
+      {/* REPORT */}
+      <section className="bg-white rounded-2xl p-6 shadow border">
+        <div className="flex justify-between mb-6">
+          <h2 className="text-2xl font-bold">Report an Issue</h2>
+          <div className="flex gap-3">
             <button
               onClick={handleNewReport}
-              disabled={loading}
-              className="bg-[#1A73E8] text-white px-6 py-3 rounded-xl font-bold"
+              className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold"
             >
-              {loading ? "Locating..." : "📸 New Report"}
-            </button>
-
-            <button
-              onClick={handleSignOut}
-              className="bg-red-50 text-red-600 px-4 py-3 rounded-xl font-bold border border-red-200"
-            >
-              Sign Out
+              📸 New Report
             </button>
           </div>
         </div>
@@ -184,19 +161,15 @@ export const CitizenDashboard: React.FC = () => {
             <button
               key={cat.value}
               onClick={() =>
-                setCategory(
-                  cat.value as ComplaintCategory
-                )
+                setCategory(cat.value as ComplaintCategory)
               }
-              className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${
+              className={`p-4 rounded-xl border-2 flex flex-col items-center ${
                 category === cat.value
-                  ? "border-[#1A73E8] bg-blue-50 text-[#1A73E8]"
-                  : "border-gray-100"
+                  ? "border-blue-600 bg-blue-50"
+                  : "border-gray-200"
               }`}
             >
-              <span className="text-2xl">
-                {cat.icon}
-              </span>
+              <span className="text-2xl">{cat.icon}</span>
               <span className="text-xs font-bold uppercase">
                 {cat.label}
               </span>
@@ -206,22 +179,20 @@ export const CitizenDashboard: React.FC = () => {
 
         <textarea
           value={description}
-          onChange={(e) =>
-            setDescription(e.target.value)
-          }
+          onChange={(e) => setDescription(e.target.value)}
           placeholder="Add description..."
-          className="w-full mt-6 p-4 bg-gray-50 border border-gray-200 rounded-xl h-24"
+          className="w-full mt-6 p-4 bg-gray-50 border rounded-xl h-24"
         />
       </section>
 
       {/* EVENTS */}
-      <section className="space-y-4">
-        <h3 className="text-xl font-bold">
+      <section>
+        <h3 className="text-xl font-bold mb-4">
           Clean-up Drives
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-3 gap-4">
           {events.map((event) => {
-            const isJoined =
+            const joined =
               event.participants?.includes(
                 currentUser?.uid || ""
               );
@@ -229,32 +200,23 @@ export const CitizenDashboard: React.FC = () => {
             return (
               <div
                 key={event.id}
-                className="bg-white p-5 rounded-2xl border border-gray-100 flex flex-col justify-between"
+                className="bg-white p-5 rounded-xl border"
               >
-                <div>
-                  <h4 className="font-bold">
-                    {event.title}
-                  </h4>
-                  <p className="text-sm text-gray-500 mb-4">
-                    {event.description}
-                  </p>
-                </div>
+                <h4 className="font-bold">{event.title}</h4>
+                <p className="text-sm text-gray-500">
+                  {event.description}
+                </p>
                 <button
                   onClick={() =>
-                    toggleJoinEvent(
-                      event.id,
-                      !isJoined
-                    )
+                    toggleJoinEvent(event.id, !joined)
                   }
-                  className={`px-4 py-2 rounded-lg text-xs font-bold ${
-                    isJoined
-                      ? "bg-green-50 text-green-700"
-                      : "bg-[#1A73E8] text-white"
+                  className={`mt-4 px-4 py-2 rounded text-xs font-bold ${
+                    joined
+                      ? "bg-green-100 text-green-700"
+                      : "bg-blue-600 text-white"
                   }`}
                 >
-                  {isJoined
-                    ? "✓ Joined"
-                    : "Join Event"}
+                  {joined ? "✓ Joined" : "Join Event"}
                 </button>
               </div>
             );
@@ -263,58 +225,67 @@ export const CitizenDashboard: React.FC = () => {
       </section>
 
       {/* MY COMPLAINTS */}
-      <section className="space-y-4">
-        <h3 className="text-xl font-bold">
-          My Issues
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <section>
+        <h3 className="text-xl font-bold mb-4">My Issues</h3>
+        <div className="grid md:grid-cols-2 gap-6">
           {complaints.map((c) => (
             <div
               key={c.id}
-              className="bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm"
+              className="bg-white rounded-2xl overflow-hidden border"
             >
-              <div className="aspect-video relative">
-                <img
-                  src={c.beforeImage}
-                  className="w-full h-full object-cover"
-                />
-                <div
-                  className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-bold uppercase ${
-                    STATUS_COLORS[c.status]
-                  }`}
-                >
-                  {c.status}
-                </div>
-              </div>
+              <img
+                src={c.beforeImage}
+                className="w-full h-48 object-cover"
+              />
 
               <div className="p-5">
-                <h4 className="font-bold">
-                  {
-                    CATEGORIES.find(
-                      (cat) =>
-                        cat.value === c.category
-                    )?.label
-                  }
-                </h4>
+                <div className="flex justify-between">
+                  <h4 className="font-bold">
+                    {
+                      CATEGORIES.find(
+                        (cat) => cat.value === c.category
+                      )?.label
+                    }
+                  </h4>
+                  <span
+                    className={`text-xs font-bold px-2 py-1 rounded ${
+                      STATUS_COLORS[c.status]
+                    }`}
+                  >
+                    {c.status}
+                  </span>
+                </div>
 
-                {c.status === "done" && (
-                  <div className="mt-4 pt-4 border-t">
+                {/* 📍 LOCATION DISPLAY */}
+                <p className="text-xs text-gray-500 mt-1">
+                  {Number(c.latitude).toFixed(5)}, {Number(c.longitude).toFixed(5)}
+                </p>
+
+                <a
+                  href={`https://www.google.com/maps?q=${c.latitude},${c.longitude}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-blue-600 underline"
+                >
+                  View on Map
+                </a>
+
+                {c.status === "done" && c.afterImage && (
+                  <div className="mt-4 border-t pt-4">
                     <img
-                      src={c.afterImage!}
-                      className="w-full h-32 object-cover rounded-xl mb-4"
+                      src={c.afterImage}
+                      className="w-full h-32 object-cover rounded mb-3"
                     />
-
                     {!c.feedback ? (
                       <div className="flex gap-2">
-                        Rate:
                         <button onClick={() => handleFeedback(c.id, "good")}>😊</button>
                         <button onClick={() => handleFeedback(c.id, "avg")}>😐</button>
                         <button onClick={() => handleFeedback(c.id, "poor")}>😞</button>
                       </div>
                     ) : (
-                      <span className="text-green-600 text-sm">
-                        Feedback submitted!
-                      </span>
+                      <p className="text-green-600 text-sm">
+                        Feedback submitted
+                      </p>
                     )}
                   </div>
                 )}
@@ -327,9 +298,7 @@ export const CitizenDashboard: React.FC = () => {
       {showCamera && (
         <CameraView
           onCapture={submitReport}
-          onCancel={() =>
-            setShowCamera(false)
-          }
+          onCancel={() => setShowCamera(false)}
         />
       )}
     </div>

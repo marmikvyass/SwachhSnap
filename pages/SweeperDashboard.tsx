@@ -1,85 +1,86 @@
-import React, { useState, useEffect } from 'react';
-import { CameraView } from '../components/CameraView';
-import { firebaseService } from '../services/firebaseService';
-import { auth } from '../lib/firebase';
-import { signOut } from 'firebase/auth';
-import { Complaint } from '../types';
-import { CATEGORIES } from '../constants';
+import React, { useState, useEffect } from "react";
+import { CameraView } from "../components/CameraView";
+import { firebaseService } from "../services/firebaseService";
+import { auth } from "../lib/firebase";
+import { signOut } from "firebase/auth";
+import { Complaint } from "../types";
+import { CATEGORIES } from "../constants";
+import { uploadToCloudinary } from "../services/cloudinaryUpload";
 
 export const SweeperDashboard: React.FC = () => {
   const [assigned, setAssigned] = useState<Complaint[]>([]);
-  const [activeComplaint, setActiveComplaint] = useState<string | null>(null);
+  const [activeComplaint, setActiveComplaint] = useState<Complaint | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const currentUser = auth.currentUser;
 
-  // 🔴 SIGN OUT HANDLER (ADDED)
+  // ==========================
+  // SIGN OUT
+  // ==========================
   const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-    } catch (err) {
-      console.error("Sign out failed:", err);
-    }
+    await signOut(auth);
   };
 
+  // ==========================
+  // SUBSCRIBE ASSIGNED TASKS
+  // ==========================
   useEffect(() => {
     if (!currentUser) return;
-    
+
     const unsubscribe = firebaseService.subscribeToComplaints(
       (complaints) => {
-        setAssigned(complaints.filter(c => c.status !== 'done'));
-      }, 
+        setAssigned(complaints.filter((c) => c.status !== "done"));
+      },
       { assignedSweeperId: currentUser.uid }
     );
 
     return () => unsubscribe();
   }, [currentUser]);
 
-  const handleComplete = (complaintId: string) => {
-    setActiveComplaint(complaintId);
+  // ==========================
+  // ACTIONS
+  // ==========================
+  const handleComplete = (complaint: Complaint) => {
+    setActiveComplaint(complaint);
     setShowCamera(true);
   };
 
   const submitAfterPhoto = async (image: string) => {
     if (!activeComplaint) return;
-    
+
     setLoading(true);
     try {
-      const imageUrl = await firebaseService.uploadImage(
-        image,
-        `complaints/${activeComplaint}/after.jpg`
-      );
+      const imageUrl = await uploadToCloudinary(image);
 
-      await firebaseService.updateComplaint(activeComplaint, { 
+      await firebaseService.updateComplaint(activeComplaint.id, {
         afterImage: imageUrl,
-        status: 'review'
+        status: "review",
       });
-      
+
       setShowCamera(false);
       setActiveComplaint(null);
-      alert('Resolution proof uploaded. Admin will review it shortly.');
+      alert("After image uploaded. Waiting for admin approval.");
     } catch (err) {
       console.error(err);
-      alert('Failed to upload proof. Please try again.');
+      alert("Failed to upload image.");
     } finally {
       setLoading(false);
     }
   };
 
+  // ==========================
+  // UI
+  // ==========================
   return (
     <div className="space-y-8 pb-20 text-black">
+      {/* HEADER */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">
-          Assigned Tasks
-        </h2>
-
-        {/* 🔴 SIGN OUT BUTTON (ADDED) */}
+        <h2 className="text-2xl font-bold">Assigned Tasks</h2>
         <div className="flex items-center gap-3">
-          <span className="bg-[#FBBC05] text-black px-3 py-1 rounded-full text-xs font-bold shadow-sm">
-            {assigned.length} Tasks Pending
+          <span className="bg-[#FBBC05] px-3 py-1 rounded-full text-xs font-bold">
+            {assigned.length} Pending
           </span>
-
           <button
             onClick={handleSignOut}
             className="text-xs font-bold px-3 py-1 rounded-full border border-red-200 text-red-600 bg-red-50"
@@ -89,67 +90,90 @@ export const SweeperDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* NO TASKS */}
       {assigned.length === 0 ? (
-        <div className="bg-white p-12 text-center rounded-3xl border border-gray-100 shadow-sm">
+        <div className="bg-white p-12 text-center rounded-3xl border">
           <div className="text-4xl mb-4">🎉</div>
-          <p className="text-gray-400 font-medium">
-            You have no pending assignments. Great job!
+          <p className="text-gray-400">
+            You have no pending assignments.
           </p>
         </div>
       ) : (
         <div className="space-y-6">
-          {assigned.map(c => (
-            <div key={c.id} className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:border-blue-100 transition-colors">
-              <div className="flex flex-col md:flex-row">
-                <div className="md:w-1/3 h-52 md:h-auto relative">
-                  <img src={c.beforeImage} className="w-full h-full object-cover" alt="Before" />
-                  <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-md text-white text-[10px] px-2 py-1 rounded uppercase font-bold">
-                    Before Cleanup
-                  </div>
+          {assigned.map((c) => (
+            <div
+              key={c.id}
+              className="bg-white rounded-3xl border overflow-hidden"
+            >
+              <div className="grid md:grid-cols-2">
+                {/* BEFORE */}
+                <div className="relative">
+                  <img
+                    src={c.beforeImage}
+                    className="w-full h-64 object-cover"
+                  />
+                  <span className="absolute top-3 left-3 bg-black/60 text-white text-xs px-2 py-1 rounded">
+                    Before
+                  </span>
                 </div>
 
-                <div className="p-6 md:w-2/3 flex flex-col justify-between">
+                {/* AFTER / ACTION */}
+                <div className="p-6 flex flex-col justify-between">
                   <div>
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-bold text-xl text-gray-900">
-                        {CATEGORIES.find(cat => cat.value === c.category)?.label}
-                      </h4>
-                      <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${c.priority === 'high' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
-                        {c.priority} Priority
-                      </span>
-                    </div>
+                    <h4 className="font-bold text-lg mb-1">
+                      {
+                        CATEGORIES.find(
+                          (cat) => cat.value === c.category
+                        )?.label
+                      }
+                    </h4>
 
-                    <p className="text-sm text-gray-600 mb-6 bg-gray-50 p-3 rounded-xl border border-gray-100 italic">
-                      "{c.description || 'No notes from citizen.'}"
+                    <p className="text-sm text-gray-600 mb-4 italic">
+                      {c.description || "No description provided."}
                     </p>
+
+                    {/* AFTER IMAGE SECTION */}
+                    <div className="border rounded-xl p-4 bg-gray-50">
+                      <p className="text-xs font-bold mb-2">
+                        After Cleanup Proof
+                      </p>
+
+                      {c.afterImage ? (
+                        <>
+                          <img
+                            src={c.afterImage}
+                            className="w-full h-40 object-cover rounded-lg mb-2"
+                          />
+                          <div className="text-yellow-700 text-xs font-bold">
+                            ⏳ Waiting for admin approval
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-gray-400 text-sm">
+                          No after image uploaded yet
+                        </div>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row items-stretch gap-3 pt-4 border-t border-gray-100">
-                    <a 
+                  {/* ACTIONS */}
+                  <div className="mt-4 flex gap-3">
+                    <a
                       href={`https://www.google.com/maps/search/?api=1&query=${c.latitude},${c.longitude}`}
                       target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 bg-blue-50 text-[#1A73E8] py-4 rounded-xl font-bold flex items-center justify-center gap-2 border border-blue-100 hover:bg-blue-100 transition-all text-sm"
+                      rel="noreferrer"
+                      className="flex-1 bg-blue-50 text-blue-700 py-3 rounded-xl font-bold text-sm text-center"
                     >
-                      <span className="text-lg">📍</span>
-                      Navigate
+                      📍 Navigate
                     </a>
 
-                    {c.status === 'review' ? (
-                      <div className="flex-[1.5] text-center py-4 bg-yellow-50 text-yellow-700 rounded-xl font-bold text-sm border border-yellow-100 flex items-center justify-center">
-                        ⏳ Under Review
-                      </div>
-                    ) : (
-                      <button 
-                        onClick={() => handleComplete(c.id)}
+                    {!c.afterImage && (
+                      <button
+                        onClick={() => handleComplete(c)}
                         disabled={loading}
-                        className="flex-[1.5] bg-[#34A853] text-white py-4 rounded-xl font-bold hover:shadow-lg hover:shadow-green-100 active:scale-95 transition-all flex items-center justify-center gap-2 text-sm"
+                        className="flex-1 bg-green-600 text-white py-3 rounded-xl font-bold text-sm"
                       >
-                        {loading ? (
-                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        ) : (
-                          <>📷 Upload Proof</>
-                        )}
+                        📷 Upload After Image
                       </button>
                     )}
                   </div>
@@ -160,13 +184,14 @@ export const SweeperDashboard: React.FC = () => {
         </div>
       )}
 
+      {/* CAMERA */}
       {showCamera && (
-        <CameraView 
-          onCapture={submitAfterPhoto} 
+        <CameraView
+          onCapture={submitAfterPhoto}
           onCancel={() => {
             setShowCamera(false);
             setActiveComplaint(null);
-          }} 
+          }}
         />
       )}
     </div>

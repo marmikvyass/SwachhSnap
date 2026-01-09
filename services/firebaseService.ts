@@ -65,17 +65,27 @@ export const firebaseService = {
   },
 
   // ==========================
-  // IMAGE UPLOAD
+  // IMAGE UPLOAD (✅ FIXED)
   // ==========================
   /**
-   * Upload base64 image to Firebase Storage
+   * Upload base64 image to Firebase Storage using SDK (NO CORS)
    * Returns public download URL
    */
-  async uploadImage(base64Data: string, path: string): Promise<string> {
+  async uploadImage(
+    base64Data: string,
+    path: string
+  ): Promise<string> {
     const storageRef = ref(storage, path);
 
-    // uploadString supports base64 data URLs (camera images)
-    await uploadString(storageRef, base64Data, "data_url");
+    // 🔥 Strip data:image/...;base64, prefix if present
+    const cleanBase64 = base64Data.includes(",")
+      ? base64Data.split(",")[1]
+      : base64Data;
+
+    // ✅ Upload using Firebase SDK (NO REST / NO CORS)
+    await uploadString(storageRef, cleanBase64, "base64", {
+      contentType: "image/jpeg",
+    });
 
     return await getDownloadURL(storageRef);
   },
